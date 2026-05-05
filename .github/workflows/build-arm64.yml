@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build ARM64 APK
@@ -33,12 +36,39 @@ jobs:
             "build-tools;35.0.0" \
             "cmake;3.10.2.4988404" 2>/dev/null | grep -v "^\[=" || true
 
+      - name: Generate release keystore (self-signed for CI)
+        run: |
+          keytool -genkey -v \
+            -keystore TMessagesProj/config/release.keystore \
+            -alias novagram \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass novagram123 \
+            -keypass novagram123 \
+            -dname "CN=NovaGram, OU=Dev, O=NovaGram, L=Paris, ST=IDF, C=FR" \
+            -storetype JKS 2>/dev/null
+          echo "Keystore generated ✓"
+
       - name: Create local.properties
         run: |
-          echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          echo "ndk.dir=${ANDROID_HOME}/ndk/21.4.7075529" >> local.properties
-          echo "githubPackagesUser=novagram" >> local.properties
-          echo "githubPackagesToken=${{ secrets.GITHUB_TOKEN }}" >> local.properties
+          cat > local.properties << 'EOF'
+          sdk.dir=/usr/local/lib/android/sdk
+          ndk.dir=/usr/local/lib/android/sdk/ndk/21.4.7075529
+          githubPackagesUser=novagram
+          githubPackagesToken=${{ secrets.GITHUB_TOKEN }}
+          googleMapsApiKey=
+          APP_CENTER_HASH_PRIVATE=
+          APP_CENTER_HASH_PUBLIC=
+          APP_CENTER_HASH_HARDCORE=
+          BETA_PRIVATE_URL=
+          BETA_PUBLIC_URL=
+          BETA_HARDCORE_URL=
+          RELEASE_STORE_PASSWORD=novagram123
+          RELEASE_KEY_ALIAS=novagram
+          RELEASE_KEY_PASSWORD=novagram123
+          EOF
+          # Strip leading whitespace from heredoc
+          sed -i 's/^[ \t]*//' local.properties
+          cat local.properties
 
       - name: Create novagram-stubs (replaces private nicegram-assistant-android)
         shell: python3 {0}
@@ -50,7 +80,7 @@ jobs:
               with open(path, 'w') as f:
                   f.write(textwrap.dedent(content).lstrip('\n'))
 
-          # ── settings.gradle ──────────────────────────────────────────────────
+          # ── settings.gradle ───────────────────────────────────────────────────
           w("novagram-stubs/settings.gradle", """
               rootProject.name = 'novagram-stubs'
               include ':assistant-core'
@@ -80,6 +110,7 @@ jobs:
               appcompat           = "1.7.0"
               core-ktx            = "1.16.0"
               interpolator        = "1.0.0"
+              timber              = "5.0.1"
 
               [libraries]
               kotlin-stdlib-jdk7                  = { group = "org.jetbrains.kotlin",        name = "kotlin-stdlib-jdk7",        version.ref = "kotlin" }
@@ -103,6 +134,7 @@ jobs:
               raamcosta-destinations-ksp          = { group = "io.github.raamcosta.compose-destinations", name = "ksp",            version.ref = "compose-dest" }
               jsoup                               = { group = "org.jsoup",                   name = "jsoup",                     version.ref = "jsoup" }
               google-play-review                  = { group = "com.google.android.play",     name = "review-ktx",                version.ref = "play-review" }
+              timber                              = { group = "com.jakewharton.timber",      name = "timber",                    version.ref = "timber" }
           """)
 
           # ── assistant-core build.gradle ───────────────────────────────────────
@@ -134,7 +166,6 @@ jobs:
 
           src = "novagram-stubs/assistant-core/src/main/java"
 
-          # ── AppInit ───────────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/assistant_core/app/AppInit.kt", """
               package com.appvillis.assistant_core.app
               import timber.log.Timber
@@ -149,8 +180,6 @@ jobs:
                   }
               }
           """)
-
-          # ── MainActivity / InChatMainActivity ─────────────────────────────────
           w(f"{src}/com/appvillis/assistant_core/MainActivity.kt", """
               package com.appvillis.assistant_core
               import android.app.Activity
@@ -167,49 +196,34 @@ jobs:
               package com.appvillis.assistant_core
               import android.app.Activity
               open class InChatMainActivity : Activity() {
-                  companion object {
-                      @JvmStatic fun launch(activity: Activity, contact: Any?) {}
-                  }
+                  companion object { @JvmStatic fun launch(activity: Activity, contact: Any?) {} }
               }
           """)
-
-          # ── core_resources ────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/core_resources/MarketConsts.kt", """
               package com.appvillis.core_resources
               object MarketConsts { const val MARKET_GOOGLE = "google" }
           """)
           w(f"{src}/com/appvillis/core_resources/domain/TgResourceProvider.kt", """
               package com.appvillis.core_resources.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
-              @Singleton
-              class TgResourceProvider @Inject constructor()
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class TgResourceProvider @Inject constructor()
           """)
           w(f"{src}/com/appvillis/core_resources/CoreUiEntryPoint.kt", """
               package com.appvillis.core_resources
               import com.appvillis.core_resources.domain.TgResourceProvider
-              import dagger.hilt.EntryPoint
-              import dagger.hilt.InstallIn
+              import dagger.hilt.EntryPoint; import dagger.hilt.InstallIn
               import dagger.hilt.components.SingletonComponent
-              @EntryPoint
-              @InstallIn(SingletonComponent::class)
-              interface CoreUiEntryPoint {
-                  fun tgResourceProvider(): TgResourceProvider
-              }
+              @EntryPoint @InstallIn(SingletonComponent::class)
+              interface CoreUiEntryPoint { fun tgResourceProvider(): TgResourceProvider }
           """)
           w(f"{src}/com/appvillis/core_resources/widgets/ToastView.kt", """
               package com.appvillis.core_resources.widgets
-              import android.content.Context
-              import android.util.AttributeSet
-              import android.widget.LinearLayout
-              class ToastView @JvmOverloads constructor(
-                  context: Context, attrs: AttributeSet? = null
-              ) : LinearLayout(context, attrs)
+              import android.content.Context; import android.util.AttributeSet; import android.widget.LinearLayout
+              class ToastView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs)
           """)
           w(f"{src}/com/appvillis/core_resources/widgets/ToastViewHelper.kt", """
               package com.appvillis.core_resources.widgets
-              import android.content.Context
-              import android.view.View
+              import android.content.Context; import android.view.View
               object ToastViewHelper {
                   @JvmStatic fun show(view: View?, text: String?) {}
                   @JvmStatic fun show(context: Context?, text: String?) {}
@@ -217,17 +231,10 @@ jobs:
                   @JvmStatic fun dismiss() {}
               }
           """)
-
-          # ── core_ui.BuildConfig ───────────────────────────────────────────────
           w(f"{src}/com/appvillis/core_ui/BuildConfig.kt", """
               package com.appvillis.core_ui
-              object BuildConfig {
-                  const val IS_LITE_CLIENT = false
-                  const val DEBUG = false
-              }
+              object BuildConfig { const val IS_LITE_CLIENT = false; const val DEBUG = false }
           """)
-
-          # ── feature_analytics ─────────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_analytics/data/AnalyticsModels.kt", """
               package com.appvillis.feature_analytics.data
               class AnalyticsEvent(val name: String = "")
@@ -236,42 +243,28 @@ jobs:
           """)
           w(f"{src}/com/appvillis/feature_analytics/domain/AnalyticsManager.kt", """
               package com.appvillis.feature_analytics.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
-              @Singleton
-              class AnalyticsManager @Inject constructor() {
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class AnalyticsManager @Inject constructor() {
                   fun logEvent(event: Any?) {}
                   fun logEventOncePerSession(event: Any?) {}
               }
           """)
           w(f"{src}/com/appvillis/feature_analytics/domain/AnalyticsEntryPoint.kt", """
               package com.appvillis.feature_analytics.domain
-              import dagger.hilt.EntryPoint
-              import dagger.hilt.InstallIn
+              import dagger.hilt.EntryPoint; import dagger.hilt.InstallIn
               import dagger.hilt.components.SingletonComponent
-              @EntryPoint
-              @InstallIn(SingletonComponent::class)
-              interface AnalyticsEntryPoint {
-                  fun analyticsManager(): AnalyticsManager
-              }
+              @EntryPoint @InstallIn(SingletonComponent::class)
+              interface AnalyticsEntryPoint { fun analyticsManager(): AnalyticsManager }
           """)
-
-          # ── feature_ai_chat ───────────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_ai_chat/domain/entity/AiCommand.kt", """
               package com.appvillis.feature_ai_chat.domain.entity
               data class AiCommand(val id: String = "", val title: String = "")
           """)
           w(f"{src}/com/appvillis/feature_ai_chat/domain/AiChatDomain.kt", """
               package com.appvillis.feature_ai_chat.domain
-              import com.appvillis.feature_ai_chat.domain.entity.AiCommand
-              import javax.inject.Inject
-              import javax.inject.Singleton
-              @Singleton class AiChatRemoteConfigRepo @Inject constructor() {
-                  val esimSplashData: Any? = null
-              }
-              @Singleton class ClearDataUseCase @Inject constructor() {
-                  operator fun invoke() {}
-              }
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class AiChatRemoteConfigRepo @Inject constructor() { val esimSplashData: Any? = null }
+              @Singleton class ClearDataUseCase @Inject constructor() { operator fun invoke() {} }
               @Singleton class UseResultManager @Inject constructor() {
                   interface UseResultListener
                   fun setListener(l: UseResultListener?) {}
@@ -281,143 +274,107 @@ jobs:
           w(f"{src}/com/appvillis/feature_ai_chat/domain/usecases/AiChatUseCases.kt", """
               package com.appvillis.feature_ai_chat.domain.usecases
               import com.appvillis.feature_ai_chat.domain.entity.AiCommand
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class GetBalanceTopUpRequestUseCase @Inject constructor()
               @Singleton class GetChatCommandsUseCase @Inject constructor() {
                   operator fun invoke(): List<AiCommand> = emptyList()
               }
           """)
-
-          # ── feature_attention_economy ─────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_attention_economy/domain/usecases/AttentionUseCases.kt", """
               package com.appvillis.feature_attention_economy.domain.usecases
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class ClaimAdsUseCase @Inject constructor()
               @Singleton class GetOngoingActionsUseCase @Inject constructor()
           """)
-
-          # ── feature_auth ──────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_auth/AuthNavHelper.kt", """
               package com.appvillis.feature_auth
               import android.app.Activity
-              object AuthNavHelper {
-                  fun launchLogin(activity: Activity) {}
-              }
+              object AuthNavHelper { fun launchLogin(activity: Activity) {} }
           """)
           w(f"{src}/com/appvillis/feature_auth/domain/AuthDomain.kt", """
               package com.appvillis.feature_auth.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class CheckIfNeedToCompleteAutoLoginUseCase @Inject constructor()
           """)
-
-          # ── feature_avatar_generator ──────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_avatar_generator/domain/usecases/AvatarUseCases.kt", """
               package com.appvillis.feature_avatar_generator.domain.usecases
-              import javax.inject.Inject
-              import javax.inject.Singleton
-              @Singleton class AvatarsOnboardingUseCase @Inject constructor() {
-                  val hasSeenWelcome: Boolean = false
-              }
-              @Singleton class GetAvatarsUseCase @Inject constructor() {
-                  val hasAnyAvatar: Boolean = false
-              }
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class AvatarsOnboardingUseCase @Inject constructor() { val hasSeenWelcome = false }
+              @Singleton class GetAvatarsUseCase @Inject constructor() { val hasAnyAvatar = false }
           """)
-
-          # ── feature_nicegram_assistant ────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_nicegram_assistant/QrCodeHelper.kt", """
               package com.appvillis.feature_nicegram_assistant
               import android.content.Context
-              object QrCodeHelper {
-                  @JvmStatic fun handleQrCode(context: Context, data: String?) {}
-              }
+              object QrCodeHelper { @JvmStatic fun handleQrCode(context: Context, data: String?) {} }
           """)
           w(f"{src}/com/appvillis/feature_nicegram_assistant/domain/AssistantDomain.kt", """
               package com.appvillis.feature_nicegram_assistant.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class GetNicegramOnboardingStatusUseCase @Inject constructor()
               @Singleton class GetSpecialOfferUseCase @Inject constructor() {
                   val specialOffer: SpecialOffersRepository.SpecialOffer? = null
                   val allOffers: List<SpecialOffersRepository.SpecialOffer> = emptyList()
-                  fun haveSeenCurrentOffer(): Boolean = true
-                  fun canShowSpecialOfferCurrentSession(): Boolean = false
+                  fun haveSeenCurrentOffer() = true
+                  fun canShowSpecialOfferCurrentSession() = false
               }
               @Singleton class SpecialOffersRepository @Inject constructor() {
                   data class SpecialOffer(val id: String = "")
               }
           """)
-
-          # ── feature_nicegram_billing ──────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_nicegram_billing/domain/BillingDomain.kt", """
               package com.appvillis.feature_nicegram_billing.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
-              @Singleton class BillingManager @Inject constructor() {
-                  val hasAnyPremium: Boolean = false
-              }
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class BillingManager @Inject constructor() { val hasAnyPremium = false }
               @Singleton class RequestInAppsUseCase @Inject constructor()
           """)
-
-          # ── feature_nicegram_client ───────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_nicegram_client/HiddenChatsHelper.kt", """
               package com.appvillis.feature_nicegram_client
               object HiddenChatsHelper {
-                  @JvmField var showHiddenChats: Boolean = true
-                  @JvmStatic fun getShowHiddenChats(): Boolean = showHiddenChats
+                  @JvmField var showHiddenChats = true
+                  @JvmStatic fun getShowHiddenChats() = showHiddenChats
                   @JvmStatic fun getHiddenChats(): List<Long> = emptyList()
-                  @JvmStatic fun setShowHiddenChats(value: Boolean) { showHiddenChats = value }
+                  @JvmStatic fun setShowHiddenChats(v: Boolean) { showHiddenChats = v }
               }
           """)
           w(f"{src}/com/appvillis/feature_nicegram_client/NicegramClientHelper.kt", """
               package com.appvillis.feature_nicegram_client
               object NicegramClientHelper {
-                  @JvmStatic fun getPreferences(): Preferences = Preferences
-                  object Preferences {
-                      @JvmStatic fun getCanShareChannels(): Boolean = false
+                  @JvmStatic fun getPreferences() = Prefs
+                  object Prefs {
+                      @JvmStatic fun getCanShareChannels() = false
                       @JvmStatic fun setCanShareChannels(v: Boolean) {}
-                      @JvmStatic fun getCanShareBots(): Boolean = false
+                      @JvmStatic fun getCanShareBots() = false
                       @JvmStatic fun setCanShareBots(v: Boolean) {}
-                      @JvmStatic fun getCanShareStickers(): Boolean = false
+                      @JvmStatic fun getCanShareStickers() = false
                       @JvmStatic fun setCanShareStickers(v: Boolean) {}
                   }
               }
           """)
           w(f"{src}/com/appvillis/feature_nicegram_client/NicegramConsts.kt", """
               package com.appvillis.feature_nicegram_client
-              object NicegramConsts {
-                  const val NICEGRAM_URL = "https://nicegram.app"
-              }
+              object NicegramConsts { const val NICEGRAM_URL = "https://nicegram.app" }
           """)
           w(f"{src}/com/appvillis/feature_nicegram_client/domain/NicegramClientDomain.kt", """
               package com.appvillis.feature_nicegram_client.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class CollectGroupInfoUseCase @Inject constructor()
               @Singleton class NgClientRemoteConfigRepo @Inject constructor()
               @Singleton class NgRevLoginUseCase @Inject constructor() {
-                  fun isReviewPhone(phone: String): Boolean = false
-                  fun getLoginTsForPhone(phone: String): Long = 0L
-                  fun getLoginUrl(phone: String): String = ""
+                  fun isReviewPhone(phone: String) = false
+                  fun getLoginTsForPhone(phone: String) = 0L
+                  fun getLoginUrl(phone: String) = ""
                   fun onLoginBntClicked(phone: String) {}
               }
-              @Singleton class NicegramSessionCounter @Inject constructor() {
-                  var sessionsCount: Int = 0
-              }
+              @Singleton class NicegramSessionCounter @Inject constructor() { var sessionsCount = 0 }
           """)
           w(f"{src}/com/appvillis/feature_nicegram_client/presentation/premium/NicegramPremiumActivity.kt", """
               package com.appvillis.feature_nicegram_client.presentation.premium
               import android.app.Activity
               open class NicegramPremiumActivity : Activity()
           """)
-
-          # ── nicegram_wallet ───────────────────────────────────────────────────
           w(f"{src}/com/appvillis/nicegram_wallet/module_bridge/InChatResultManager.kt", """
               package com.appvillis.nicegram_wallet.module_bridge
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class InChatResultManager @Inject constructor() {
                   interface InChatResultListener
                   fun setListener(l: InChatResultListener?) {}
@@ -426,114 +383,79 @@ jobs:
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_contacts/domain/WalletContact.kt", """
               package com.appvillis.nicegram_wallet.wallet_contacts.domain
               data class WalletContact(val id: String = "", val name: String = "") {
-                  companion object {
-                      @JvmStatic fun create(vararg args: Any?): WalletContact = WalletContact()
-                  }
+                  companion object { @JvmStatic fun create(vararg args: Any?): WalletContact = WalletContact() }
               }
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_dapps/domain/WalletDappsDomain.kt", """
               package com.appvillis.nicegram_wallet.wallet_dapps.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class BrowserResponseManager @Inject constructor()
               @Singleton class TgBrowserBridgeFactory @Inject constructor()
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_dapps/presentation/js_inject/NgWalletInjectHelper.kt", """
               package com.appvillis.nicegram_wallet.wallet_dapps.presentation.js_inject
-              object NgWalletInjectHelper {
-                  @JvmStatic fun getInjectScript(): String = ""
-              }
+              object NgWalletInjectHelper { @JvmStatic fun getInjectScript() = "" }
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_scanqr/QrResultEmitter.kt", """
               package com.appvillis.nicegram_wallet.wallet_scanqr
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class QrResultEmitter @Inject constructor()
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_security/domain/VerificationManager.kt", """
               package com.appvillis.nicegram_wallet.wallet_security.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class VerificationManager @Inject constructor()
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_storage/domain/GetCurrentWalletUseCase.kt", """
               package com.appvillis.nicegram_wallet.wallet_storage.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class GetCurrentWalletUseCase @Inject constructor()
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_tonconnect/domain/TonconnectDomain.kt", """
               package com.appvillis.nicegram_wallet.wallet_tonconnect.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class TcDeeplinkManager @Inject constructor()
               @Singleton class WalletPopupActivityLauncher @Inject constructor()
           """)
-
-          # ── rep_placements ────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/rep_placements/domain/entity/PinnedChatsPlacement.kt", """
               package com.appvillis.rep_placements.domain.entity
               data class PinnedChatsPlacement(val id: String = "", val title: String = "") {
-                  fun getId(): String = id
+                  fun getId() = id
               }
           """)
           w(f"{src}/com/appvillis/rep_placements/domain/PlacementsDomain.kt", """
               package com.appvillis.rep_placements.domain
               import com.appvillis.rep_placements.domain.entity.PinnedChatsPlacement
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class GetChatPlacementsUseCase @Inject constructor()
               @Singleton class GetPinChatsPlacementsUseCase @Inject constructor() {
                   fun noFilters(): List<PinnedChatsPlacement> = emptyList()
-                  fun pinPlacementIsHidden(pin: PinnedChatsPlacement): Boolean = false
+                  fun pinPlacementIsHidden(pin: PinnedChatsPlacement) = false
               }
               @Singleton class HidePlacementUseCase @Inject constructor() {
                   operator fun invoke(id: String) {}
                   fun unhide(id: String) {}
               }
           """)
-
-          # ── rep_user ──────────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/rep_user/domain/UserDomain.kt", """
               package com.appvillis.rep_user.domain
-              import javax.inject.Inject
-              import javax.inject.Singleton
-              @Singleton class AppSessionControlUseCase @Inject constructor() {
-                  val appSessionNumber: Int = 0
-              }
-              @Singleton class GetUserStatusUseCase @Inject constructor() {
-                  val isUserLoggedIn: Boolean = false
-              }
-              @Singleton class UserRepository @Inject constructor() {
-                  val hasAnySub: Boolean = false
-              }
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class AppSessionControlUseCase @Inject constructor() { val appSessionNumber = 0 }
+              @Singleton class GetUserStatusUseCase @Inject constructor() { val isUserLoggedIn = false }
+              @Singleton class UserRepository @Inject constructor() { val hasAnySub = false }
           """)
-
-          # ── rep_user_actions ──────────────────────────────────────────────────
           w(f"{src}/com/appvillis/rep_user_actions/domain/usecases/SaveUserActionUseCase.kt", """
               package com.appvillis.rep_user_actions.domain.usecases
-              import javax.inject.Inject
-              import javax.inject.Singleton
+              import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class SaveUserActionUseCase @Inject constructor()
           """)
-
-          # ── bridges ───────────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/bridges/user/bridges/WalletUserBridgeImpl.kt", """
               package com.appvillis.bridges.user.bridges
-              object WalletUserBridgeImpl {
-                  @JvmField var isDemoUser: Boolean = false
-              }
+              object WalletUserBridgeImpl { @JvmField var isDemoUser = false }
           """)
-
-          # ── feature_account_export ────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_account_export/domain/AccountDomain.kt", """
               package com.appvillis.feature_account_export.domain
-              data class Account(
-                  val accountId: Int = 0,
-                  val id: String = "",
-                  val name: String = "",
-                  val deviceInfo: String = ""
-              )
+              data class Account(val accountId: Int = 0, val id: String = "", val name: String = "", val deviceInfo: String = "")
               class ExportedAccountsRepository
           """)
           w(f"{src}/com/appvillis/feature_account_export/ExportAccountsBottomSheetFragment.kt", """
@@ -542,33 +464,23 @@ jobs:
               import com.appvillis.feature_account_export.domain.Account
               class ExportAccountsBottomSheetFragment : DialogFragment() {
                   companion object {
-                      @JvmStatic fun create(
-                          accounts: List<Account>,
-                          export: Boolean,
-                          callback: ((List<Account>) -> Unit)?
-                      ): ExportAccountsBottomSheetFragment = ExportAccountsBottomSheetFragment()
+                      @JvmStatic fun create(accounts: List<Account>, export: Boolean, callback: ((List<Account>) -> Unit)?): ExportAccountsBottomSheetFragment =
+                          ExportAccountsBottomSheetFragment()
                   }
               }
           """)
           w(f"{src}/com/appvillis/feature_account_export/ExportAccountsEntryPoint.kt", """
               package com.appvillis.feature_account_export
               import com.appvillis.feature_account_export.domain.ExportedAccountsRepository
-              import dagger.hilt.EntryPoint
-              import dagger.hilt.InstallIn
+              import dagger.hilt.EntryPoint; import dagger.hilt.InstallIn
               import dagger.hilt.components.SingletonComponent
-              @EntryPoint
-              @InstallIn(SingletonComponent::class)
-              interface ExportAccountsEntryPoint {
-                  fun exportedAccountsRepository(): ExportedAccountsRepository
-              }
+              @EntryPoint @InstallIn(SingletonComponent::class)
+              interface ExportAccountsEntryPoint { fun exportedAccountsRepository(): ExportedAccountsRepository }
           """)
           w(f"{src}/com/appvillis/feature_account_export/ExportAccountsHelper.kt", """
               package com.appvillis.feature_account_export
-              import android.content.Context
-              import java.io.File
-              object ExportAccountsHelper {
-                  @JvmStatic fun createRevAccountFromAsset(context: Context): File? = null
-              }
+              import android.content.Context; import java.io.File
+              object ExportAccountsHelper { @JvmStatic fun createRevAccountFromAsset(context: Context): File? = null }
           """)
           w(f"{src}/com/appvillis/feature_account_export/LogoutConfirmBottomSheetFragment.kt", """
               package com.appvillis.feature_account_export
@@ -580,100 +492,63 @@ jobs:
                   }
               }
           """)
-
-          # ── feature_ai_shortcuts ──────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_ai_shortcuts/AiShortcutsEntryPoint.kt", """
               package com.appvillis.feature_ai_shortcuts
-              import dagger.hilt.EntryPoint
-              import dagger.hilt.InstallIn
+              import dagger.hilt.EntryPoint; import dagger.hilt.InstallIn
               import dagger.hilt.components.SingletonComponent
-              interface AiShortcutsSettings {
-                  fun getShowInChat(): Boolean
-              }
-              @EntryPoint
-              @InstallIn(SingletonComponent::class)
-              interface AiShortcutsEntryPoint {
-                  fun aiShortcutsSettings(): AiShortcutsSettings
-              }
+              interface AiShortcutsSettings { fun getShowInChat(): Boolean }
+              @EntryPoint @InstallIn(SingletonComponent::class)
+              interface AiShortcutsEntryPoint { fun aiShortcutsSettings(): AiShortcutsSettings }
           """)
-
-          # ── feature_chat_widgets ──────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_chat_widgets/NgWidgetsView.kt", """
               package com.appvillis.feature_chat_widgets
-              import android.content.Context
-              import android.util.AttributeSet
-              import android.widget.FrameLayout
-              class NgWidgetsView @JvmOverloads constructor(
-                  context: Context, attrs: AttributeSet? = null
-              ) : FrameLayout(context, attrs) {
+              import android.content.Context; import android.util.AttributeSet; import android.widget.FrameLayout
+              class NgWidgetsView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
                   fun setData(nameColor: Int, msgColor: Int, pinnedColor: Int) {}
               }
           """)
           w(f"{src}/com/appvillis/feature_chat_widgets/NgWidgetsHelper.kt", """
               package com.appvillis.feature_chat_widgets
               import android.content.Context
-              class NgWidgetsHelper(context: Context) {
-                  fun hasNgWidgetsType(): Boolean = false
-              }
+              class NgWidgetsHelper(context: Context) { fun hasNgWidgetsType() = false }
           """)
           w(f"{src}/com/appvillis/feature_chat_widgets/NgWidgetsEntryPoint.kt", """
               package com.appvillis.feature_chat_widgets
-              import dagger.hilt.EntryPoint
-              import dagger.hilt.InstallIn
+              import dagger.hilt.EntryPoint; import dagger.hilt.InstallIn
               import dagger.hilt.components.SingletonComponent
               import kotlinx.coroutines.CoroutineScope
-              interface PinnedBannerManager {
-                  fun onBannerVisible()
-                  fun onExitFromScreen()
-              }
-              @EntryPoint
-              @InstallIn(SingletonComponent::class)
+              interface PinnedBannerManager { fun onBannerVisible(); fun onExitFromScreen() }
+              @EntryPoint @InstallIn(SingletonComponent::class)
               interface NgWidgetsEntryPoint {
                   fun appScope(): CoroutineScope
                   fun pinnedBannerManager(): PinnedBannerManager
               }
           """)
-
-          # ── feature_keywords ──────────────────────────────────────────────────
           w(f"{src}/com/appvillis/feature_keywords/domain/KeywordsConsts.kt", """
               package com.appvillis.feature_keywords.domain
-              object KeywordsConsts {
-                  const val FOLDER_FOR_KEYWORDS_ID = -2
-              }
+              object KeywordsConsts { const val FOLDER_FOR_KEYWORDS_ID = -2 }
           """)
           w(f"{src}/com/appvillis/feature_keywords/domain/entities/KeywordsMessage.kt", """
               package com.appvillis.feature_keywords.domain.entities
-              data class KeywordsMessage(
-                  val messageId: Long = 0,
-                  val chatId: Long = 0,
-                  val keyword: String = ""
-              )
+              data class KeywordsMessage(val messageId: Long = 0, val chatId: Long = 0, val keyword: String = "")
           """)
           w(f"{src}/com/appvillis/feature_keywords/presentation/ui/EnableTrackingToastView.kt", """
               package com.appvillis.feature_keywords.presentation.ui
-              import android.content.Context
-              import android.util.AttributeSet
-              import android.widget.FrameLayout
-              class EnableTrackingToastView @JvmOverloads constructor(
-                  context: Context, attrs: AttributeSet? = null
-              ) : FrameLayout(context, attrs)
+              import android.content.Context; import android.util.AttributeSet; import android.widget.FrameLayout
+              class EnableTrackingToastView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs)
           """)
-
-          # ── lib_android_base ──────────────────────────────────────────────────
           w(f"{src}/com/appvillis/lib_android_base/Intents.kt", """
               package com.appvillis.lib_android_base
-              import android.content.Context
-              import android.content.Intent
+              import android.content.Context; import android.content.Intent
               object Intents {
                   @JvmStatic fun shareText(context: Context, text: String): Intent =
                       Intent(Intent.ACTION_SEND).apply { putExtra(Intent.EXTRA_TEXT, text); type = "text/plain" }
               }
           """)
 
-          # ── NicegramStubsModule (Hilt bindings for all EntryPoint return types) ─
+          # ── Hilt Module — provides all bindings ───────────────────────────────
           w(f"{src}/com/appvillis/assistant_core/NicegramStubsModule.kt", """
               package com.appvillis.assistant_core
-
               import com.appvillis.assistant_core.app.AppInit
               import com.appvillis.core_resources.domain.TgResourceProvider
               import com.appvillis.feature_account_export.domain.ExportedAccountsRepository
@@ -687,6 +562,7 @@ jobs:
               import com.appvillis.feature_nicegram_billing.domain.*
               import com.appvillis.feature_nicegram_client.domain.*
               import com.appvillis.feature_ai_shortcuts.AiShortcutsSettings
+              import com.appvillis.feature_analytics.domain.AnalyticsManager
               import com.appvillis.nicegram_wallet.module_bridge.InChatResultManager
               import com.appvillis.nicegram_wallet.wallet_dapps.domain.*
               import com.appvillis.nicegram_wallet.wallet_scanqr.QrResultEmitter
@@ -696,33 +572,19 @@ jobs:
               import com.appvillis.rep_placements.domain.*
               import com.appvillis.rep_user.domain.*
               import com.appvillis.rep_user_actions.domain.usecases.SaveUserActionUseCase
-              import com.appvillis.feature_analytics.domain.AnalyticsManager
-              import dagger.Module
-              import dagger.Provides
-              import dagger.hilt.InstallIn
+              import dagger.Module; import dagger.Provides; import dagger.hilt.InstallIn
               import dagger.hilt.components.SingletonComponent
-              import kotlinx.coroutines.CoroutineScope
-              import kotlinx.coroutines.Dispatchers
-              import kotlinx.coroutines.SupervisorJob
+              import kotlinx.coroutines.CoroutineScope; import kotlinx.coroutines.Dispatchers; import kotlinx.coroutines.SupervisorJob
               import javax.inject.Singleton
 
-              @Module
-              @InstallIn(SingletonComponent::class)
+              @Module @InstallIn(SingletonComponent::class)
               object NicegramStubsModule {
                   @Provides @Singleton fun provideAppInit() = AppInit()
                   @Provides @Singleton fun provideTgResourceProvider() = TgResourceProvider()
                   @Provides @Singleton fun provideAnalyticsManager() = AnalyticsManager()
-                  @Provides @Singleton fun provideCoroutineScope(): CoroutineScope =
-                      CoroutineScope(SupervisorJob() + Dispatchers.IO)
-                  @Provides @Singleton fun providePinnedBannerManager(): PinnedBannerManager =
-                      object : PinnedBannerManager {
-                          override fun onBannerVisible() {}
-                          override fun onExitFromScreen() {}
-                      }
-                  @Provides @Singleton fun provideAiShortcutsSettings(): AiShortcutsSettings =
-                      object : AiShortcutsSettings {
-                          override fun getShowInChat() = false
-                      }
+                  @Provides @Singleton fun provideCoroutineScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+                  @Provides @Singleton fun providePinnedBannerManager(): PinnedBannerManager = object : PinnedBannerManager { override fun onBannerVisible() {}; override fun onExitFromScreen() {} }
+                  @Provides @Singleton fun provideAiShortcutsSettings(): AiShortcutsSettings = object : AiShortcutsSettings { override fun getShowInChat() = false }
                   @Provides @Singleton fun provideExportedAccountsRepository() = ExportedAccountsRepository()
                   @Provides @Singleton fun provideAiChatRemoteConfigRepo() = AiChatRemoteConfigRepo()
                   @Provides @Singleton fun provideClearDataUseCase() = ClearDataUseCase()
@@ -761,7 +623,7 @@ jobs:
               }
           """)
 
-          # ── core/network module ───────────────────────────────────────────────
+          # ── core/network ──────────────────────────────────────────────────────
           w("novagram-stubs/core/network/build.gradle", """
               apply plugin: 'com.android.library'
               apply plugin: 'kotlin-android'
@@ -769,100 +631,92 @@ jobs:
                   namespace 'com.appvillis.core_network'
                   compileSdkVersion 35
                   defaultConfig { minSdkVersion 24 }
-                  compileOptions {
-                      sourceCompatibility JavaVersion.VERSION_17
-                      targetCompatibility JavaVersion.VERSION_17
-                  }
+                  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
               }
           """)
           w("novagram-stubs/core/network/src/main/java/com/appvillis/core_network/di/NetworkConsts.kt", """
               package com.appvillis.core_network.di
-              object NetworkConsts {
-                  const val API_URL = "https://sso.nicegram.app/"
-              }
+              object NetworkConsts { const val API_URL = "https://sso.nicegram.app/" }
           """)
 
           # ── empty stub modules ────────────────────────────────────────────────
-          empty_build = """
-              apply plugin: 'com.android.library'
-              android {
-                  namespace 'com.appvillis.stub'
-                  compileSdkVersion 35
-                  defaultConfig { minSdkVersion 24 }
-              }
-          """
-          for mod in [
-              "features/account-export",
-              "features/user-activities",
-              "features/ai-chat-analysis",
-              "features/rep-user",
-              "features/nicegram-billing",
-              "core/markets",
+          for mod, ns in [
+              ("features/account-export",  "com.appvillis.stub.accountexport"),
+              ("features/user-activities", "com.appvillis.stub.useractivities"),
+              ("features/ai-chat-analysis","com.appvillis.stub.aichat"),
+              ("features/rep-user",        "com.appvillis.stub.repuser"),
+              ("features/nicegram-billing","com.appvillis.stub.billing"),
+              ("core/markets",             "com.appvillis.stub.markets"),
           ]:
-              name = mod.replace("/", "_").replace("-", "_")
-              build = empty_build.replace("com.appvillis.stub", f"com.appvillis.stub_{name}")
-              w(f"novagram-stubs/{mod}/build.gradle", build)
+              w(f"novagram-stubs/{mod}/build.gradle", f"""
+                  apply plugin: 'com.android.library'
+                  android {{ namespace '{ns}'; compileSdkVersion 35; defaultConfig {{ minSdkVersion 24 }} }}
+              """)
 
-          print("✅ All novagram-stubs files created successfully")
-          import subprocess, os
-          result = subprocess.run(["find", "novagram-stubs", "-type", "f"], capture_output=True, text=True)
-          print(result.stdout)
+          print("✅ novagram-stubs created")
 
-      - name: Patch settings.gradle (point to novagram-stubs)
+      - name: Patch settings.gradle
         run: |
           python3 - << 'PYEOF'
-          with open("settings.gradle", "r") as f:
-              content = f.read()
-          # Replace private includeBuild with our stubs
-          content = content.replace(
-              "includeBuild('nicegram-assistant-android')",
-              "includeBuild('novagram-stubs')"
-          )
-          # Update version catalog path
-          content = content.replace(
-              "nicegram-assistant-android/gradle/libs.versions.toml",
-              "novagram-stubs/gradle/libs.versions.toml"
-          )
+          with open("settings.gradle") as f:
+              c = f.read()
+          c = c.replace("includeBuild('nicegram-assistant-android')", "includeBuild('novagram-stubs')")
+          c = c.replace("nicegram-assistant-android/gradle/libs.versions.toml", "novagram-stubs/gradle/libs.versions.toml")
           with open("settings.gradle", "w") as f:
-              f.write(content)
+              f.write(c)
           print("✅ settings.gradle patched")
-          print(open("settings.gradle").read())
           PYEOF
 
-      - name: Add ARM64-only ABI filter
+      - name: Patch TMessagesProj_App — ARM64 only + app properties
         run: |
           python3 - << 'PYEOF'
-          with open("TMessagesProj/build.gradle", "r") as f:
-              content = f.read()
-          # Insert ndk abiFilters after multiDexEnabled
-          if 'abiFilters' not in content:
-              content = content.replace(
-                  'multiDexEnabled true',
-                  'multiDexEnabled true\n        ndk { abiFilters "arm64-v8a" }'
+          import re
+
+          # ── TMessagesProj_App/build.gradle: restrict all flavors to arm64-v8a ──
+          with open("TMessagesProj_App/build.gradle") as f:
+              c = f.read()
+          # Replace every abiFilters list in productFlavors with arm64-only
+          c = re.sub(
+              r'abiFilters\s+"armeabi-v7a",\s*"arm64-v8a",\s*"x86",\s*"x86_64"',
+              'abiFilters "arm64-v8a"',
+              c
+          )
+          with open("TMessagesProj_App/build.gradle", "w") as f:
+              f.write(c)
+          print("✅ TMessagesProj_App abiFilters → arm64-v8a only")
+
+          # ── TMessagesProj/build.gradle: add ndk abiFilters in defaultConfig ───
+          with open("TMessagesProj/build.gradle") as f:
+              c = f.read()
+          if 'abiFilters' not in c:
+              c = c.replace(
+                  'multiDexEnabled true\n\n        externalNativeBuild',
+                  'multiDexEnabled true\n        ndk { abiFilters "arm64-v8a" }\n\n        externalNativeBuild'
               )
               with open("TMessagesProj/build.gradle", "w") as f:
-                  f.write(content)
-              print("✅ ARM64 abiFilters added")
-          else:
-              print("ℹ️  abiFilters already present")
+                  f.write(c)
+              print("✅ TMessagesProj abiFilters → arm64-v8a only")
           PYEOF
 
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Gradle warmup (dependencies download)
-        run: |
-          ./gradlew dependencies --configuration releaseRuntimeClasspath \
-            --no-daemon -q 2>&1 | tail -5 || true
-
       - name: Build ARM64 Release APK
         run: |
-          ./gradlew :TMessagesProj_App:assembleRelease \
+          set -o pipefail
+          ./gradlew :TMessagesProj_App:assembleAfatRelease \
             --no-daemon \
             --stacktrace \
-            --info \
+            -PAPP_PACKAGE=app.nicegram \
+            -PAPP_VERSION_NAME=10.8.0 \
+            -PAPP_VERSION_CODE=30000 \
+            -PRELEASE_STORE_PASSWORD=novagram123 \
+            -PRELEASE_KEY_ALIAS=novagram \
+            -PRELEASE_KEY_PASSWORD=novagram123 \
             2>&1 | tee build.log
-          echo "Exit code: $?"
+          BUILD_EXIT=${PIPESTATUS[0]}
+          echo "Gradle exit code: $BUILD_EXIT"
+          exit $BUILD_EXIT
 
       - name: Upload build log (always)
         if: always()
@@ -877,4 +731,4 @@ jobs:
         with:
           name: novagram-arm64-release
           path: '**/build/outputs/apk/**/*.apk'
-          if-no-files-found: warn
+          if-no-files-found: error
