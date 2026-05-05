@@ -147,6 +147,22 @@ jobs:
               include ':core:markets'
           """)
 
+          # ── root build.gradle — composite build needs its own classpath ───────
+          w("novagram-stubs/build.gradle", """
+              buildscript {
+                  repositories { mavenCentral(); google() }
+                  dependencies {
+                      classpath 'com.android.tools.build:gradle:8.6.1'
+                      classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0"
+                      classpath "com.google.dagger:hilt-android-gradle-plugin:2.57.2"
+                      classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:2.1.0-1.0.29"
+                  }
+              }
+              allprojects {
+                  repositories { google(); mavenCentral(); maven { url 'https://jitpack.io' } }
+              }
+          """)
+
           # ── version catalog (internalLibs) ────────────────────────────────────
           w("novagram-stubs/gradle/libs.versions.toml", """
               [versions]
