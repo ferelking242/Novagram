@@ -9,7 +9,7 @@ include(":TMessagesProj_AppStandalone")
 include(":TMessagesProj_AppTests")
 include(":nicegram-features")
 
-includeBuild('nicegram-assistant-android') {
+includeBuild('novagram-stubs') {
     dependencySubstitution {
         substitute module('nicegram:assistant-core') using project(':assistant-core')
         substitute module('nicegram:features:account-export') using project(':features:account-export')
@@ -25,7 +25,7 @@ includeBuild('nicegram-assistant-android') {
 dependencyResolutionManagement {
     versionCatalogs {
         internalLibs {
-            from(files("nicegram-assistant-android/gradle/libs.versions.toml"))
+            from(files("novagram-stubs/gradle/libs.versions.toml"))
         }
     }
 }
