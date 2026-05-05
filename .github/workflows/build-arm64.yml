@@ -38,6 +38,7 @@ jobs:
 
       - name: Generate release keystore (self-signed for CI)
         run: |
+          rm -f TMessagesProj/config/release.keystore
           keytool -genkey -v \
             -keystore TMessagesProj/config/release.keystore \
             -alias novagram \
