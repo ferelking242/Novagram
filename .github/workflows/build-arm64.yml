@@ -28,7 +28,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK & Build Tools
+      - name: Install NDK and build tools
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "ndk;21.4.7075529" \
@@ -36,7 +36,7 @@ jobs:
             "build-tools;35.0.0" \
             "cmake;3.10.2.4988404" 2>/dev/null | grep -v "^\[=" || true
 
-      - name: Generate release keystore (self-signed for CI)
+      - name: Generate release keystore
         run: |
           rm -f TMessagesProj/config/release.keystore
           keytool -genkey -v \
@@ -47,7 +47,7 @@ jobs:
             -keypass novagram123 \
             -dname "CN=NovaGram, OU=Dev, O=NovaGram, L=Paris, ST=IDF, C=FR" \
             -storetype JKS 2>/dev/null
-          echo "Keystore generated ✓"
+          echo "Keystore generated"
 
       - name: Create local.properties
         run: |
@@ -67,11 +67,64 @@ jobs:
           RELEASE_KEY_ALIAS=novagram
           RELEASE_KEY_PASSWORD=novagram123
           EOF
-          # Strip leading whitespace from heredoc
           sed -i 's/^[ \t]*//' local.properties
           cat local.properties
 
-      - name: Create novagram-stubs (replaces private nicegram-assistant-android)
+      - name: Patch source files
+        run: |
+          python3 - << 'PYEOF'
+          import re
+
+          # ── settings.gradle: swap nicegram-assistant-android → novagram-stubs ─
+          with open("settings.gradle") as f:
+              c = f.read()
+          c = c.replace("includeBuild('nicegram-assistant-android')", "includeBuild('novagram-stubs')")
+          c = c.replace("nicegram-assistant-android/gradle/libs.versions.toml", "novagram-stubs/gradle/libs.versions.toml")
+          with open("settings.gradle", "w") as f:
+              f.write(c)
+          print("settings.gradle patched")
+
+          # ── TMessagesProj_App: ARM64-only abiFilters ──────────────────────────
+          with open("TMessagesProj_App/build.gradle") as f:
+              c = f.read()
+          c = re.sub(
+              r'abiFilters\s+"armeabi-v7a",\s*"arm64-v8a",\s*"x86",\s*"x86_64"',
+              'abiFilters "arm64-v8a"',
+              c
+          )
+          with open("TMessagesProj_App/build.gradle", "w") as f:
+              f.write(c)
+          print("TMessagesProj_App abiFilters -> arm64-v8a")
+
+          # ── TMessagesProj: enable buildConfig + arm64 abiFilters ──────────────
+          with open("TMessagesProj/build.gradle") as f:
+              c = f.read()
+          c = c.replace(
+              "buildFeatures {\n        viewBinding true\n    }",
+              "buildFeatures {\n        viewBinding true\n        buildConfig true\n    }"
+          )
+          if 'abiFilters' not in c:
+              c = c.replace(
+                  'multiDexEnabled true\n\n        externalNativeBuild',
+                  'multiDexEnabled true\n        ndk { abiFilters "arm64-v8a" }\n\n        externalNativeBuild'
+              )
+          with open("TMessagesProj/build.gradle", "w") as f:
+              f.write(c)
+          print("TMessagesProj buildConfig=true + abiFilters")
+
+          # ── nicegram-features: enable buildConfig ─────────────────────────────
+          with open("nicegram-features/build.gradle") as f:
+              c = f.read()
+          c = c.replace(
+              "    buildFeatures {\n        viewBinding true\n        compose true\n    }",
+              "    buildFeatures {\n        viewBinding true\n        compose true\n        buildConfig true\n    }"
+          )
+          with open("nicegram-features/build.gradle", "w") as f:
+              f.write(c)
+          print("nicegram-features buildConfig=true")
+          PYEOF
+
+      - name: Create novagram-stubs
         shell: python3 {0}
         run: |
           import os, textwrap
@@ -547,7 +600,7 @@ jobs:
               }
           """)
 
-          # ── Hilt Module — provides all bindings ───────────────────────────────
+          # ── Hilt Module ───────────────────────────────────────────────────────
           w(f"{src}/com/appvillis/assistant_core/NicegramStubsModule.kt", """
               package com.appvillis.assistant_core
               import com.appvillis.assistant_core.app.AppInit
@@ -654,65 +707,8 @@ jobs:
                   android {{ namespace '{ns}'; compileSdkVersion 35; defaultConfig {{ minSdkVersion 24 }} }}
               """)
 
-          print("✅ novagram-stubs created")
+          print("novagram-stubs created OK")
 
-      - name: Patch settings.gradle
-        run: |
-          python3 - << 'PYEOF'
-          with open("settings.gradle") as f:
-              c = f.read()
-          c = c.replace("includeBuild('nicegram-assistant-android')", "includeBuild('novagram-stubs')")
-          c = c.replace("nicegram-assistant-android/gradle/libs.versions.toml", "novagram-stubs/gradle/libs.versions.toml")
-          with open("settings.gradle", "w") as f:
-              f.write(c)
-          print("✅ settings.gradle patched")
-          PYEOF
-
-      - name: Patch builds — ARM64 only + buildConfig fixes
-          run: |
-            python3 - << 'PYEOF'
-            import re
-
-            # TMessagesProj_App: restrict all flavors to arm64-v8a
-            with open("TMessagesProj_App/build.gradle") as f:
-                c = f.read()
-            c = re.sub(
-                r'abiFilters\s+"armeabi-v7a",\s*"arm64-v8a",\s*"x86",\s*"x86_64"',
-                'abiFilters "arm64-v8a"',
-                c
-            )
-            with open("TMessagesProj_App/build.gradle", "w") as f:
-                f.write(c)
-            print("TMessagesProj_App abiFilters -> arm64-v8a only")
-
-            # TMessagesProj: enable buildConfig + arm64 abiFilters
-            with open("TMessagesProj/build.gradle") as f:
-                c = f.read()
-            # Enable buildConfig (needed for buildConfigField in library module)
-            c = c.replace(
-                "buildFeatures {\n        viewBinding true\n    }",
-                "buildFeatures {\n        viewBinding true\n        buildConfig true\n    }"
-            )
-            if 'abiFilters' not in c:
-                c = c.replace(
-                    'multiDexEnabled true\n\n        externalNativeBuild',
-                    'multiDexEnabled true\n        ndk { abiFilters "arm64-v8a" }\n\n        externalNativeBuild'
-                )
-            with open("TMessagesProj/build.gradle", "w") as f:
-                f.write(c)
-            print("TMessagesProj buildConfig=true + abiFilters")
-
-            # nicegram-features: enable buildConfig
-            with open("nicegram-features/build.gradle") as f:
-                c = f.read()
-            c = c.replace(
-                "    buildFeatures {\n        viewBinding true\n        compose true\n    }",
-                "    buildFeatures {\n        viewBinding true\n        compose true\n        buildConfig true\n    }"
-            )
-            with open("nicegram-features/build.gradle", "w") as f:
-                f.write(c)
-            print("nicegram-features buildConfig=true")
-            PYEOF
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
