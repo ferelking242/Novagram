@@ -82,6 +82,13 @@ dependencies {
     // Firebase
     implementation(platform(internalLibs.firebase.bom))
     implementation(internalLibs.firebase.config)
+    implementation(internalLibs.firebase.crashlytics)
+
+    // Timber
+    implementation(internalLibs.timber)
+
+    // Core network stub (NetworkConsts)
+    implementation("nicegram:core:network")
 
     // Play Review
     implementation(internalLibs.google.play.review)
