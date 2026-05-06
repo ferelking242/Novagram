@@ -49,7 +49,7 @@ jobs:
             -storetype JKS 2>/dev/null
           echo "Keystore generated"
 
-      - name: Create local.properties
+      - name: Create local.properties and gradle.properties
         run: |
           cat > local.properties << 'EOF'
           sdk.dir=/usr/local/lib/android/sdk
@@ -69,6 +69,17 @@ jobs:
           EOF
           sed -i 's/^[ \t]*//' local.properties
           cat local.properties
+          cat > gradle.properties << 'GPEOF'
+          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          org.gradle.parallel=true
+          android.useAndroidX=true
+          android.enableJetifier=false
+          kotlin.code.style=official
+          android.nonTransitiveRClass=false
+          GPEOF
+          sed -i 's/^[ \t]*//' gradle.properties
+          echo "=== gradle.properties ==="
+          cat gradle.properties
 
       - name: Create novagram-stubs
         shell: python3 {0}
