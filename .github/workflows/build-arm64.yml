@@ -70,60 +70,6 @@ jobs:
           sed -i 's/^[ \t]*//' local.properties
           cat local.properties
 
-      - name: Patch source files
-        run: |
-          python3 - << 'PYEOF'
-          import re
-
-          # ── settings.gradle: swap nicegram-assistant-android → novagram-stubs ─
-          with open("settings.gradle") as f:
-              c = f.read()
-          c = c.replace("includeBuild('nicegram-assistant-android')", "includeBuild('novagram-stubs')")
-          c = c.replace("nicegram-assistant-android/gradle/libs.versions.toml", "novagram-stubs/gradle/libs.versions.toml")
-          with open("settings.gradle", "w") as f:
-              f.write(c)
-          print("settings.gradle patched")
-
-          # ── TMessagesProj_App: ARM64-only abiFilters ──────────────────────────
-          with open("TMessagesProj_App/build.gradle") as f:
-              c = f.read()
-          c = re.sub(
-              r'abiFilters\s+"armeabi-v7a",\s*"arm64-v8a",\s*"x86",\s*"x86_64"',
-              'abiFilters "arm64-v8a"',
-              c
-          )
-          with open("TMessagesProj_App/build.gradle", "w") as f:
-              f.write(c)
-          print("TMessagesProj_App abiFilters -> arm64-v8a")
-
-          # ── TMessagesProj: enable buildConfig + arm64 abiFilters ──────────────
-          with open("TMessagesProj/build.gradle") as f:
-              c = f.read()
-          c = c.replace(
-              "buildFeatures {\n        viewBinding true\n    }",
-              "buildFeatures {\n        viewBinding true\n        buildConfig true\n    }"
-          )
-          if 'abiFilters' not in c:
-              c = c.replace(
-                  'multiDexEnabled true\n\n        externalNativeBuild',
-                  'multiDexEnabled true\n        ndk { abiFilters "arm64-v8a" }\n\n        externalNativeBuild'
-              )
-          with open("TMessagesProj/build.gradle", "w") as f:
-              f.write(c)
-          print("TMessagesProj buildConfig=true + abiFilters")
-
-          # ── nicegram-features: enable buildConfig ─────────────────────────────
-          with open("nicegram-features/build.gradle") as f:
-              c = f.read()
-          c = c.replace(
-              "    buildFeatures {\n        viewBinding true\n        compose true\n    }",
-              "    buildFeatures {\n        viewBinding true\n        compose true\n        buildConfig true\n    }"
-          )
-          with open("nicegram-features/build.gradle", "w") as f:
-              f.write(c)
-          print("nicegram-features buildConfig=true")
-          PYEOF
-
       - name: Create novagram-stubs
         shell: python3 {0}
         run: |
@@ -223,6 +169,7 @@ jobs:
                       targetCompatibility JavaVersion.VERSION_17
                   }
                   kotlinOptions { jvmTarget = '17' }
+                  buildFeatures { buildConfig false }
               }
               dependencies {
                   implementation 'com.google.dagger:hilt-android:2.57.2'
@@ -437,34 +384,17 @@ jobs:
               }
               @Singleton class NicegramSessionCounter @Inject constructor() { var sessionsCount = 0 }
           """)
-          w(f"{src}/com/appvillis/feature_nicegram_client/presentation/premium/NicegramPremiumActivity.kt", """
-              package com.appvillis.feature_nicegram_client.presentation.premium
-              import android.app.Activity
-              open class NicegramPremiumActivity : Activity()
-          """)
           w(f"{src}/com/appvillis/nicegram_wallet/module_bridge/InChatResultManager.kt", """
               package com.appvillis.nicegram_wallet.module_bridge
               import javax.inject.Inject; import javax.inject.Singleton
-              @Singleton class InChatResultManager @Inject constructor() {
-                  interface InChatResultListener
-                  fun setListener(l: InChatResultListener?) {}
-              }
+              @Singleton class InChatResultManager @Inject constructor()
           """)
-          w(f"{src}/com/appvillis/nicegram_wallet/wallet_contacts/domain/WalletContact.kt", """
-              package com.appvillis.nicegram_wallet.wallet_contacts.domain
-              data class WalletContact(val id: String = "", val name: String = "") {
-                  companion object { @JvmStatic fun create(vararg args: Any?): WalletContact = WalletContact() }
-              }
-          """)
-          w(f"{src}/com/appvillis/nicegram_wallet/wallet_dapps/domain/WalletDappsDomain.kt", """
+          w(f"{src}/com/appvillis/nicegram_wallet/wallet_dapps/domain/WalletDapps.kt", """
               package com.appvillis.nicegram_wallet.wallet_dapps.domain
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class BrowserResponseManager @Inject constructor()
               @Singleton class TgBrowserBridgeFactory @Inject constructor()
-          """)
-          w(f"{src}/com/appvillis/nicegram_wallet/wallet_dapps/presentation/js_inject/NgWalletInjectHelper.kt", """
-              package com.appvillis.nicegram_wallet.wallet_dapps.presentation.js_inject
-              object NgWalletInjectHelper { @JvmStatic fun getInjectScript() = "" }
+              @Singleton class WalletPopupActivityLauncher @Inject constructor()
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_scanqr/QrResultEmitter.kt", """
               package com.appvillis.nicegram_wallet.wallet_scanqr
@@ -481,86 +411,34 @@ jobs:
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class GetCurrentWalletUseCase @Inject constructor()
           """)
-          w(f"{src}/com/appvillis/nicegram_wallet/wallet_tonconnect/domain/TonconnectDomain.kt", """
+          w(f"{src}/com/appvillis/nicegram_wallet/wallet_tonconnect/domain/TonConnectDomain.kt", """
               package com.appvillis.nicegram_wallet.wallet_tonconnect.domain
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class TcDeeplinkManager @Inject constructor()
-              @Singleton class WalletPopupActivityLauncher @Inject constructor()
           """)
-          w(f"{src}/com/appvillis/rep_placements/domain/entity/PinnedChatsPlacement.kt", """
-              package com.appvillis.rep_placements.domain.entity
-              data class PinnedChatsPlacement(val id: String = "", val title: String = "") {
-                  fun getId() = id
-              }
-          """)
-          w(f"{src}/com/appvillis/rep_placements/domain/PlacementsDomain.kt", """
+          w(f"{src}/com/appvillis/rep_placements/domain/RepPlacementsDomain.kt", """
               package com.appvillis.rep_placements.domain
-              import com.appvillis.rep_placements.domain.entity.PinnedChatsPlacement
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class GetChatPlacementsUseCase @Inject constructor()
-              @Singleton class GetPinChatsPlacementsUseCase @Inject constructor() {
-                  fun noFilters(): List<PinnedChatsPlacement> = emptyList()
-                  fun pinPlacementIsHidden(pin: PinnedChatsPlacement) = false
-              }
-              @Singleton class HidePlacementUseCase @Inject constructor() {
-                  operator fun invoke(id: String) {}
-                  fun unhide(id: String) {}
-              }
+              @Singleton class GetPinChatsPlacementsUseCase @Inject constructor()
+              @Singleton class HidePlacementUseCase @Inject constructor()
+              @Singleton class AppSessionControlUseCase @Inject constructor()
           """)
-          w(f"{src}/com/appvillis/rep_user/domain/UserDomain.kt", """
+          w(f"{src}/com/appvillis/rep_user/domain/RepUserDomain.kt", """
               package com.appvillis.rep_user.domain
               import javax.inject.Inject; import javax.inject.Singleton
-              @Singleton class AppSessionControlUseCase @Inject constructor() { val appSessionNumber = 0 }
-              @Singleton class GetUserStatusUseCase @Inject constructor() { val isUserLoggedIn = false }
-              @Singleton class UserRepository @Inject constructor() { val hasAnySub = false }
+              @Singleton class GetUserStatusUseCase @Inject constructor()
+              @Singleton class UserRepository @Inject constructor()
           """)
           w(f"{src}/com/appvillis/rep_user_actions/domain/usecases/SaveUserActionUseCase.kt", """
               package com.appvillis.rep_user_actions.domain.usecases
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class SaveUserActionUseCase @Inject constructor()
           """)
-          w(f"{src}/com/appvillis/bridges/user/bridges/WalletUserBridgeImpl.kt", """
-              package com.appvillis.bridges.user.bridges
-              object WalletUserBridgeImpl { @JvmField var isDemoUser = false }
-          """)
-          w(f"{src}/com/appvillis/feature_account_export/domain/AccountDomain.kt", """
+          w(f"{src}/com/appvillis/feature_account_export/domain/ExportedAccountsRepository.kt", """
               package com.appvillis.feature_account_export.domain
-              data class Account(val accountId: Int = 0, val id: String = "", val name: String = "", val deviceInfo: String = "")
-              class ExportedAccountsRepository
-          """)
-          w(f"{src}/com/appvillis/feature_account_export/ExportAccountsBottomSheetFragment.kt", """
-              package com.appvillis.feature_account_export
-              import androidx.fragment.app.DialogFragment
-              import com.appvillis.feature_account_export.domain.Account
-              class ExportAccountsBottomSheetFragment : DialogFragment() {
-                  companion object {
-                      @JvmStatic fun create(accounts: List<Account>, export: Boolean, callback: ((List<Account>) -> Unit)?): ExportAccountsBottomSheetFragment =
-                          ExportAccountsBottomSheetFragment()
-                  }
-              }
-          """)
-          w(f"{src}/com/appvillis/feature_account_export/ExportAccountsEntryPoint.kt", """
-              package com.appvillis.feature_account_export
-              import com.appvillis.feature_account_export.domain.ExportedAccountsRepository
-              import dagger.hilt.EntryPoint; import dagger.hilt.InstallIn
-              import dagger.hilt.components.SingletonComponent
-              @EntryPoint @InstallIn(SingletonComponent::class)
-              interface ExportAccountsEntryPoint { fun exportedAccountsRepository(): ExportedAccountsRepository }
-          """)
-          w(f"{src}/com/appvillis/feature_account_export/ExportAccountsHelper.kt", """
-              package com.appvillis.feature_account_export
-              import android.content.Context; import java.io.File
-              object ExportAccountsHelper { @JvmStatic fun createRevAccountFromAsset(context: Context): File? = null }
-          """)
-          w(f"{src}/com/appvillis/feature_account_export/LogoutConfirmBottomSheetFragment.kt", """
-              package com.appvillis.feature_account_export
-              import androidx.fragment.app.DialogFragment
-              class LogoutConfirmBottomSheetFragment : DialogFragment() {
-                  companion object {
-                      @JvmStatic fun create(callback: (() -> Unit)? = null): LogoutConfirmBottomSheetFragment =
-                          LogoutConfirmBottomSheetFragment()
-                  }
-              }
+              import javax.inject.Inject; import javax.inject.Singleton
+              @Singleton class ExportedAccountsRepository @Inject constructor()
           """)
           w(f"{src}/com/appvillis/feature_ai_shortcuts/AiShortcutsEntryPoint.kt", """
               package com.appvillis.feature_ai_shortcuts
@@ -702,6 +580,7 @@ jobs:
                   compileSdkVersion 35
                   defaultConfig { minSdkVersion 24 }
                   compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+                  buildFeatures { buildConfig false }
               }
           """)
           w("novagram-stubs/core/network/src/main/java/com/appvillis/core_network/di/NetworkConsts.kt", """
@@ -720,7 +599,7 @@ jobs:
           ]:
               w(f"novagram-stubs/{mod}/build.gradle", f"""
                   apply plugin: 'com.android.library'
-                  android {{ namespace '{ns}'; compileSdkVersion 35; defaultConfig {{ minSdkVersion 24 }} }}
+                  android {{ namespace '{ns}'; compileSdkVersion 35; defaultConfig {{ minSdkVersion 24 }}; buildFeatures {{ buildConfig false }} }}
               """)
 
           print("novagram-stubs created OK")
