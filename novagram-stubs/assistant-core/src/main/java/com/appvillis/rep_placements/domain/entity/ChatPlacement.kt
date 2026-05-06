@@ -14,12 +14,4 @@ data class ChatPlacement(
     val showInChat: Boolean = true,
     val showToPremium: Boolean = false,
     val showAgainAfterSeconds: Long = 0L
-) {
-    fun getId(): String = id
-    fun getTitle(): String = title
-    fun getDesc(): String = desc
-    fun getImage(): String? = image
-    fun getBgImage(): String? = bgImage
-    fun getUrlAndroid(): String = urlAndroid
-    fun getShowAgainAfterSeconds(): Long = showAgainAfterSeconds
-}
+)
