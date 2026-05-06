@@ -5,6 +5,4 @@ data class Account(
     val phone: String = "",
     val name: String = "",
     val username: String? = null
-) {
-    fun getName(): String = name
-}
+)
