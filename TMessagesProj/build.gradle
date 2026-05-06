@@ -134,6 +134,7 @@ android {
     // region nicegram
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
     //endregion
 
