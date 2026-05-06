@@ -281,7 +281,9 @@ jobs:
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class AnalyticsManager @Inject constructor() {
                   fun logEvent(event: Any?) {}
+                  fun logEvent(name: String, params: Map<String, Any?>) {}
                   fun logEventOncePerSession(event: Any?) {}
+                  fun logEventOncePerSession(name: String) {}
               }
           """)
           w(f"{src}/com/appvillis/feature_analytics/domain/AnalyticsEntryPoint.kt", """
@@ -302,17 +304,23 @@ jobs:
               @Singleton class ClearDataUseCase @Inject constructor() { operator fun invoke() {} }
               @Singleton class UseResultManager @Inject constructor() {
                   interface UseResultListener
-                  fun setListener(l: UseResultListener?) {}
-                  fun removeListener() {}
+                  typealias UseResultLister = UseResultListener
+                  var listener: UseResultListener? = null
+                  fun setListener(l: UseResultListener?) { listener = l }
+                  fun removeListener() { listener = null }
               }
           """)
           w(f"{src}/com/appvillis/feature_ai_chat/domain/usecases/AiChatUseCases.kt", """
               package com.appvillis.feature_ai_chat.domain.usecases
               import com.appvillis.feature_ai_chat.domain.entity.AiCommand
               import javax.inject.Inject; import javax.inject.Singleton
-              @Singleton class GetBalanceTopUpRequestUseCase @Inject constructor()
+              import kotlinx.coroutines.flow.Flow; import kotlinx.coroutines.flow.emptyFlow
+              @Singleton class GetBalanceTopUpRequestUseCase @Inject constructor() {
+                  operator fun invoke(): Flow<Unit> = emptyFlow()
+              }
               @Singleton class GetChatCommandsUseCase @Inject constructor() {
                   operator fun invoke(): List<AiCommand> = emptyList()
+                  val contextCommands: List<AiCommand> = emptyList()
               }
           """)
           w(f"{src}/com/appvillis/feature_attention_economy/domain/usecases/AttentionUseCases.kt", """
@@ -324,7 +332,10 @@ jobs:
           w(f"{src}/com/appvillis/feature_auth/AuthNavHelper.kt", """
               package com.appvillis.feature_auth
               import android.app.Activity
-              object AuthNavHelper { fun launchLogin(activity: Activity) {} }
+              object AuthNavHelper {
+                  fun launchLogin(activity: Activity) {}
+                  var authBack: Boolean = false
+              }
           """)
           w(f"{src}/com/appvillis/feature_auth/domain/AuthDomain.kt", """
               package com.appvillis.feature_auth.domain
@@ -351,9 +362,10 @@ jobs:
                   val allOffers: List<SpecialOffersRepository.SpecialOffer> = emptyList()
                   fun haveSeenCurrentOffer() = true
                   fun canShowSpecialOfferCurrentSession() = false
+                  fun canShowSpecialOfferCurrentSession(appSessionNumber: Int) = false
               }
               @Singleton class SpecialOffersRepository @Inject constructor() {
-                  data class SpecialOffer(val id: String = "")
+                  data class SpecialOffer(val id: Int = 0)
               }
           """)
           w(f"{src}/com/appvillis/feature_nicegram_billing/domain/BillingDomain.kt", """
@@ -398,6 +410,7 @@ jobs:
                   fun isReviewPhone(phone: String) = false
                   fun getLoginTsForPhone(phone: String) = 0L
                   fun getLoginUrl(phone: String) = ""
+                  fun getLoginUrl() = ""
                   fun onLoginBntClicked(phone: String) {}
               }
               @Singleton class NicegramSessionCounter @Inject constructor() { var sessionsCount = 0 }
@@ -405,14 +418,16 @@ jobs:
           w(f"{src}/com/appvillis/nicegram_wallet/module_bridge/InChatResultManager.kt", """
               package com.appvillis.nicegram_wallet.module_bridge
               import javax.inject.Inject; import javax.inject.Singleton
-              @Singleton class InChatResultManager @Inject constructor()
+              @Singleton class InChatResultManager @Inject constructor() {
+                  interface InChatResultLister
+                  var listener: InChatResultLister? = null
+              }
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_dapps/domain/WalletDapps.kt", """
               package com.appvillis.nicegram_wallet.wallet_dapps.domain
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class BrowserResponseManager @Inject constructor()
               @Singleton class TgBrowserBridgeFactory @Inject constructor()
-              @Singleton class WalletPopupActivityLauncher @Inject constructor()
           """)
           w(f"{src}/com/appvillis/nicegram_wallet/wallet_scanqr/QrResultEmitter.kt", """
               package com.appvillis.nicegram_wallet.wallet_scanqr
@@ -433,20 +448,47 @@ jobs:
               package com.appvillis.nicegram_wallet.wallet_tonconnect.domain
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class TcDeeplinkManager @Inject constructor()
+              @Singleton class WalletPopupActivityLauncher @Inject constructor()
+          """)
+          w(f"{src}/com/appvillis/rep_placements/domain/entity/PinnedChatsPlacement.kt", """
+              package com.appvillis.rep_placements.domain.entity
+              data class PinnedChatsPlacement(val id: String = "")
           """)
           w(f"{src}/com/appvillis/rep_placements/domain/RepPlacementsDomain.kt", """
               package com.appvillis.rep_placements.domain
+              import com.appvillis.rep_placements.domain.entity.PinnedChatsPlacement
               import javax.inject.Inject; import javax.inject.Singleton
-              @Singleton class GetChatPlacementsUseCase @Inject constructor()
-              @Singleton class GetPinChatsPlacementsUseCase @Inject constructor()
-              @Singleton class HidePlacementUseCase @Inject constructor()
-              @Singleton class AppSessionControlUseCase @Inject constructor()
+              data class ChatPlacement(
+                  val showInRestrictedChat: Boolean = false,
+                  val showInChat: Boolean = true,
+                  val showToPremium: Boolean = false
+              )
+              @Singleton class GetChatPlacementsUseCase @Inject constructor() {
+                  operator fun invoke(): List<ChatPlacement> = emptyList()
+              }
+              @Singleton class GetPinChatsPlacementsUseCase @Inject constructor() {
+                  fun noFilters(): List<PinnedChatsPlacement> = emptyList()
+                  fun pinPlacementIsHidden(pin: PinnedChatsPlacement) = false
+              }
+              @Singleton class HidePlacementUseCase @Inject constructor() {
+                  operator fun invoke(id: String) {}
+                  fun unhide(id: String) {}
+              }
           """)
           w(f"{src}/com/appvillis/rep_user/domain/RepUserDomain.kt", """
               package com.appvillis.rep_user.domain
               import javax.inject.Inject; import javax.inject.Singleton
-              @Singleton class GetUserStatusUseCase @Inject constructor()
-              @Singleton class UserRepository @Inject constructor()
+              import kotlinx.coroutines.flow.MutableStateFlow; import kotlinx.coroutines.flow.StateFlow
+              data class UserData(val hasAnySub: Boolean = false)
+              @Singleton class AppSessionControlUseCase @Inject constructor() {
+                  val appSessionNumber: Int = 0
+              }
+              @Singleton class GetUserStatusUseCase @Inject constructor() {
+                  val isUserLoggedIn: Boolean = false
+              }
+              @Singleton class UserRepository @Inject constructor() {
+                  val userData: StateFlow<UserData?> = MutableStateFlow(null)
+              }
           """)
           w(f"{src}/com/appvillis/rep_user_actions/domain/usecases/SaveUserActionUseCase.kt", """
               package com.appvillis.rep_user_actions.domain.usecases
@@ -457,6 +499,42 @@ jobs:
               package com.appvillis.feature_account_export.domain
               import javax.inject.Inject; import javax.inject.Singleton
               @Singleton class ExportedAccountsRepository @Inject constructor()
+          """)
+          w(f"{src}/com/appvillis/feature_account_export/ExportAccountsHelper.kt", """
+              package com.appvillis.feature_account_export
+              import android.content.Context
+              import java.io.File
+              object ExportAccountsHelper {
+                  fun createRevAccountFromAsset(context: Context): File = File(context.cacheDir, "rev_account.zip")
+              }
+          """)
+          w(f"{src}/com/appvillis/bridges/user/bridges/WalletUserBridgeImpl.kt", """
+              package com.appvillis.bridges.user.bridges
+              object WalletUserBridgeImpl {
+                  var isDemoUser: Boolean = false
+              }
+          """)
+          w(f"{src}/com/appvillis/nicegram_wallet/wallet_contacts/domain/WalletContact.kt", """
+              package com.appvillis.nicegram_wallet.wallet_contacts.domain
+              data class WalletContact(
+                  val id: String = "",
+                  val firstName: String? = null,
+                  val lastName: String? = null,
+                  val username: String? = null,
+                  val avatarSymbols: String = "",
+                  val img: String = ""
+              ) {
+                  companion object {
+                      fun create(
+                          id: String,
+                          firstName: String?,
+                          lastName: String?,
+                          username: String?,
+                          avatarSymbols: String,
+                          img: String
+                      ) = WalletContact(id, firstName, lastName, username, avatarSymbols, img)
+                  }
+              }
           """)
           w(f"{src}/com/appvillis/feature_ai_shortcuts/AiShortcutsEntryPoint.kt", """
               package com.appvillis.feature_ai_shortcuts
