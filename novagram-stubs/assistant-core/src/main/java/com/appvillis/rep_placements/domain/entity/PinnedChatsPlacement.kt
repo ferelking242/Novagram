@@ -5,6 +5,4 @@ data class PinnedChatsPlacement(
     val name: String = "",
     val chatIds: List<Long> = emptyList(),
     val order: Int = 0
-) {
-    fun getName(): String = name
-}
+)
