@@ -104,6 +104,13 @@ jobs:
               include ':core:markets'
           """)
 
+          # ── gradle.properties for composite build ────────────────────────────
+          w("novagram-stubs/gradle.properties", """
+              android.useAndroidX=true
+              android.enableJetifier=false
+              org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          """)
+
           # ── root build.gradle — composite build needs its own classpath ───────
           w("novagram-stubs/build.gradle", """
               buildscript {
