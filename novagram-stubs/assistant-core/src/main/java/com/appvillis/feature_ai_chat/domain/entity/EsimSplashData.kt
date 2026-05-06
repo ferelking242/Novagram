@@ -6,7 +6,4 @@ data class EsimSplashData(
     val imageUrl: String? = null,
     val coupon: String? = null,
     val url: String = ""
-) {
-    fun getCoupon(): String? = coupon
-    fun getUrl(): String = url
-}
+)
