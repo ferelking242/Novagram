@@ -1,0 +1,10 @@
+rootProject.name = 'novagram-stubs'
+
+include(':assistant-core')
+include(':features:account-export')
+include(':features:user-activities')
+include(':features:ai-chat-analysis')
+include(':core:network')
+include(':core:markets')
+include(':features:rep-user')
+include(':features:nicegram-billing')

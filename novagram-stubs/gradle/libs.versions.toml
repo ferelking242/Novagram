@@ -1,0 +1,40 @@
+[versions]
+firebase-bom = "32.7.0"
+timber = "5.0.1"
+okhttp = "4.12.0"
+hilt = "2.57.2"
+androidx-core-ktx = "1.16.0"
+androidx-appcompat = "1.7.0"
+android-material = "1.12.0"
+kotlinx-coroutines = "1.7.3"
+retrofit = "2.11.0"
+jsoup = "1.17.2"
+androidx-constraintlayout = "2.1.4"
+google-play-review = "2.0.1"
+raamcosta-destinations = "1.9.54"
+kotlin-stdlib = "2.1.0"
+androidx-interpolator = "1.0.0"
+
+[libraries]
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core-ktx" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
+android-material = { module = "com.google.android.material:material", version.ref = "android-material" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+retrofit-core = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintlayout" }
+firebase-config = { module = "com.google.firebase:firebase-remote-config" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
+firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
+google-play-review = { module = "com.google.android.play:review", version.ref = "google-play-review" }
+raamcosta-destination-animations = { module = "io.github.raamcosta.compose-destinations:animations-core", version.ref = "raamcosta-destinations" }
+raamcosta-destinations-ksp = { module = "io.github.raamcosta.compose-destinations:ksp", version.ref = "raamcosta-destinations" }
+kotlin-stdlib-jdk7 = { module = "org.jetbrains.kotlin:kotlin-stdlib-jdk7", version.ref = "kotlin-stdlib" }
+androidx-interpolator = { module = "androidx.interpolator:interpolator", version.ref = "androidx-interpolator" }
