@@ -10,8 +10,5 @@ interface SpecialOffersRepository {
         val title: String = "",
         val description: String = "",
         val imageUrl: String? = null
-    ) {
-        fun getId(): Int = id
-        fun getUrl(): String = url
-    }
+    )
 }
