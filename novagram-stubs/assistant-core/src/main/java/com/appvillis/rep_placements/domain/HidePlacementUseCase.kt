@@ -1,5 +1,6 @@
 package com.appvillis.rep_placements.domain
 
 class HidePlacementUseCase {
-    suspend operator fun invoke(placementId: String) {}
+    operator fun invoke(placementId: String) {}
+    fun unhide(id: String) {}
 }
