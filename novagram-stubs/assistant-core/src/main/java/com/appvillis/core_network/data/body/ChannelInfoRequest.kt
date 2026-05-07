@@ -69,55 +69,55 @@ data class ChannelInfoRequest(
 
         sealed class PhotoSize {
             data class PhotoSizeEmpty(val type: String = "") : PhotoSize()
-            data class PhotoSize(
+            data class PhotoSizeRegular(
                 val type: String = "",
                 val w: Int = 0,
                 val h: Int = 0,
                 val size: Int = 0
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.PhotoSize()
+            ) : PhotoSize()
 
             data class PhotoCachedSize(
                 val type: String = "",
                 val w: Int = 0,
                 val h: Int = 0,
                 val bytes: ByteArray? = null
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.PhotoSize()
+            ) : PhotoSize()
 
             data class PhotoStrippedSize(
                 val type: String = "",
                 val bytes: ByteArray? = null
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.PhotoSize()
+            ) : PhotoSize()
 
             data class PhotoSizeProgressive(
                 val type: String = "",
                 val w: Int = 0,
                 val h: Int = 0,
                 val sizes: ArrayList<Int> = arrayListOf()
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.PhotoSize()
+            ) : PhotoSize()
 
             data class PhotoPathSize(
                 val type: String = "",
                 val bytes: ByteArray? = null
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.PhotoSize()
+            ) : PhotoSize()
         }
 
         sealed class VideoSize {
-            data class VideoSize(
+            data class VideoSizeRegular(
                 val type: String = "",
                 val w: Int = 0,
                 val h: Int = 0,
                 val size: Int = 0
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.VideoSize()
+            ) : VideoSize()
 
             data class VideoSizeEmojiMarkup(
                 val emojiId: Long = 0,
                 val backgroundsColors: ArrayList<Int> = arrayListOf()
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.VideoSize()
+            ) : VideoSize()
 
             data class VideoSizeStickerMarkup(
                 val stickerId: Long = 0,
                 val backgroundsColors: ArrayList<Int> = arrayListOf()
-            ) : com.appvillis.core_network.data.body.ChannelInfoRequest.MessageInformation.VideoSize()
+            ) : VideoSize()
         }
     }
 

@@ -318,7 +318,7 @@ private fun ArrayList<TLRPC.PhotoSize>.wrapPhotoSize(): ArrayList<MessageInforma
     return this.mapNotNull { tlPhotoSize ->
         when (tlPhotoSize) {
             is TLRPC.TL_photoSizeEmpty -> MessageInformation.PhotoSize.PhotoSizeEmpty(tlPhotoSize.type)
-            is TLRPC.TL_photoSize -> MessageInformation.PhotoSize.PhotoSize(
+            is TLRPC.TL_photoSize -> MessageInformation.PhotoSize.PhotoSizeRegular(
                 type = tlPhotoSize.type,
                 w = tlPhotoSize.w,
                 h = tlPhotoSize.h,
@@ -357,7 +357,7 @@ private fun ArrayList<TLRPC.PhotoSize>.wrapPhotoSize(): ArrayList<MessageInforma
 private fun ArrayList<TLRPC.VideoSize>.wrapVideoSize(): ArrayList<MessageInformation.VideoSize> {
     return this.mapNotNull { tlVideoSize ->
         when (tlVideoSize) {
-            is TLRPC.TL_videoSize -> MessageInformation.VideoSize.VideoSize(
+            is TLRPC.TL_videoSize -> MessageInformation.VideoSize.VideoSizeRegular(
                 type = tlVideoSize.type,
                 w = tlVideoSize.w,
                 h = tlVideoSize.h,
