@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="NicegramApproximately">Approximately</string>
+    <string name="NicegramOlderThan">Older than</string>
+    <string name="NicegramNewerThan">Newer than</string>
+    <string name="NicegarmTutorial_Dialog_Steps_Styled">Steps</string>
+    <string name="NicegarmTutorial_Dialog_Title">Tutorial</string>
+</resources>
