@@ -10654,4 +10654,8 @@
     <string name="AIEditorEmojify">emojify</string>
     <string name="TranslateCopy">Copy Translation</string>
     <string name="TranslateEntireChat">Translate Entire Chat</string>
+    <string name="QuickRepliesAddNew">Add new reply</string>
+    <string name="QuickRepliesEnterText">Enter text…</string>
+    <string name="QuickRepliesDesc">Quick replies let you save messages with media to reuse them.</string>
+    <string name="Ng_AccountExport_ImportTitle">Import Account</string>
 </resources>
