@@ -10658,4 +10658,5 @@
     <string name="QuickRepliesEnterText">Enter text…</string>
     <string name="QuickRepliesDesc">Quick replies let you save messages with media to reuse them.</string>
     <string name="Ng_AccountExport_ImportTitle">Import Account</string>
+    <string name="Common_SuccessNew">Success</string>
 </resources>

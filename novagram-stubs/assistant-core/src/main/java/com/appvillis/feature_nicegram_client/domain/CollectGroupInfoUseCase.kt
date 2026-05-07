@@ -36,6 +36,7 @@ class CollectGroupInfoUseCase {
     }
 
     data class Geo(
+        val address: String = "",
         val lat: Double = 0.0,
         val lng: Double = 0.0
     )
@@ -64,7 +65,7 @@ class CollectGroupInfoUseCase {
     fun canCollectGroupPack(): Boolean = false
     fun canCollectBot(id: Long): Boolean = false
     fun getGroupsUsernameForCollect(): UsernamesForParsing = UsernamesForParsing()
-    suspend fun collectGroupsInfo(groupInfo: GroupCollectInfoData, requestId: String = "") {}
+    suspend fun collectGroupsInfo(groupInfo: List<GroupCollectInfoData>, requestId: String = "") {}
     suspend fun collectGroup(data: GroupCollectInfoData.CollectInfoData, uploadMap: Map<String, String> = emptyMap()) {}
     suspend fun collectInfo(data: GroupCollectInfoData.CollectInfoData) {}
 }

@@ -11,4 +11,5 @@ import dagger.hilt.components.SingletonComponent
 interface CoreUiEntryPoint {
     fun tgResourceProvider(): TgResourceProvider
     fun tgImagesLoader(): TgImagesLoader
+    fun toastDisplayHelper(): ToastDisplayHelper
 }

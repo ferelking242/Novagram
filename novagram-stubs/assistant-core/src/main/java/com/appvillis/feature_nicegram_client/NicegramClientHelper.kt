@@ -5,6 +5,8 @@ import com.appvillis.feature_nicegram_client.domain.NgClientRemoteConfigRepo
 object NicegramClientHelper {
     private val _preferences = Preferences()
 
+    @JvmStatic val preferences: Preferences? get() = _preferences
+
     @JvmStatic fun getPreferences(): Preferences = _preferences
 
     @JvmStatic

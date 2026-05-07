@@ -55,4 +55,7 @@
     <item name="passcode_btn_fingerprint" type="id"/>
     <item name="passcode_btn_backspace" type="id"/>
     <item name="passcode_btn_done" type="id"/>
+
+    <item name="action_global_sessionsListFragmentPop" type="id"/>
+    <item name="action_global_aiChatAnalysisFragmentPop" type="id"/>
 </resources>
