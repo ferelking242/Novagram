@@ -119,3 +119,19 @@ object TgBridgeModule {
     @Singleton
     fun provideTgAuthBridge(): TgAuthBridge = TgAuthBridgeImpl()
 }
+
+private fun calculateGradientColor(
+    startColor: Int,
+    endColor: Int,
+    x: Int,
+    y: Int,
+    width: Int,
+    height: Int
+): Int {
+    val fraction = (x.toFloat() / width + y.toFloat() / height) / 2f
+    val r = (Color.red(startColor) + fraction * (Color.red(endColor) - Color.red(startColor))).toInt()
+    val g = (Color.green(startColor) + fraction * (Color.green(endColor) - Color.green(startColor))).toInt()
+    val b = (Color.blue(startColor) + fraction * (Color.blue(endColor) - Color.blue(startColor))).toInt()
+    val a = (Color.alpha(startColor) + fraction * (Color.alpha(endColor) - Color.alpha(startColor))).toInt()
+    return Color.argb(a, r, g, b)
+}

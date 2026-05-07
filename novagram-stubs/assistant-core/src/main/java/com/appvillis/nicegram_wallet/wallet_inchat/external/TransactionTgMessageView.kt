@@ -11,6 +11,7 @@ open class TransactionTgMessageView @JvmOverloads constructor(
         @JvmStatic fun isThisTxMessage(text: String): Boolean = false
     }
 
+    fun setData(text: String, incoming: Boolean) {}
     fun setTransactionId(id: String) {}
     fun setAmount(amount: String) {}
     fun updateTheme() {}
