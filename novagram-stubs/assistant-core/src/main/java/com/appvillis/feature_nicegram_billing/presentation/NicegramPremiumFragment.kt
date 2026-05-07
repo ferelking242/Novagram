@@ -8,7 +8,7 @@ import androidx.fragment.app.Fragment
 
 class NicegramPremiumFragment : Fragment() {
     companion object {
-        @JvmStatic fun newInstance(): NicegramPremiumFragment = NicegramPremiumFragment()
+        @JvmStatic fun newInstance(showContinueBtn: Boolean = false): NicegramPremiumFragment = NicegramPremiumFragment()
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? = null
