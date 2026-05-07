@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="assistant_bg">#131417</color>
+    <color name="ai_chat_bonus_dialog_title">#FFFFFF</color>
+    <color name="ai_chat_bonus_dialog_text">#CCCCCC</color>
+    <color name="ai_chat_bonus_dialog_divider">#333333</color>
+    <color name="aiWhite">#FFFFFF</color>
 </resources>
