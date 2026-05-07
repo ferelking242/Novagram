@@ -94,6 +94,9 @@ dependencies {
     implementation(internalLibs.firebase.crashlytics)
     implementation(internalLibs.firebase.analytics)
 
+    // Timber
+    implementation(internalLibs.timber)
+
     // Hilt
     implementation(internalLibs.hilt.android)
     ksp(internalLibs.hilt.compiler)
